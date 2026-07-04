@@ -3,6 +3,9 @@ My personal website tryout
 Use this personal website code to make whatever personal website you require. The code is pretty easy to edit for yourself. 
 Feel free to use this wherever or whenever you want. 
 
+Here's a link to what this website, with this code specifically, looks like: 
+___
+
 If you haven't seen the video of me breaking down this website's code, here's a link: 
 ___ 
 Make sure you watch until atleast the bugfixes and edits segment, as that segment has some of the bugfixes I'd commit to the whole web design. 
