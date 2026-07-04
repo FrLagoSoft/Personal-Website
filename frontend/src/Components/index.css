@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background-color: transparent;
+}
+
+/* Hex background tile animation — driven by a single class on the container,
+   so React only touches one DOM node per phase change instead of N tiles. */
+.hex-tile {
+    transform: scaleX(1);
+    transition: transform 0.2s ease var(--stagger, 0ms);
+}
+.hex-collapsing .hex-tile {
+    transform: scaleX(0);
+}
+
+@keyframes tile-wave {
+    0%   { filter: brightness(1); }
+    40%  { filter: brightness(2) drop-shadow(0 0 14px var(--wave-color, white)); }
+    100% { filter: brightness(1); }
+}
+.hex-waving .hex-tile {
+    animation: tile-wave 700ms ease-out forwards;
+    animation-delay: var(--wave-stagger, 99999ms);
+}
