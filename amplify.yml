@@ -1,0 +1,22 @@
+# AWS Amplify Hosting build settings. Amplify reads this file from the root of
+# the repository on every push to the connected GitHub branch.
+#
+# The site lives in frontend/, so every command runs from there.
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - nvm install 22          # Vite 8 needs Node 20.19+ or 22.12+
+        - npm ci --prefix frontend
+    build:
+      commands:
+        - nvm use 22
+        - npm run build --prefix frontend
+  artifacts:
+    baseDirectory: frontend/dist
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - frontend/node_modules/**/*
