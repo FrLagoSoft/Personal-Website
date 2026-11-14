@@ -1,0 +1,4 @@
+/* Global styles, loaded once by main.jsx. Each feature imports its own stylesheet next to its code. */
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./base.css";

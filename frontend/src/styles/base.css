@@ -1,0 +1,33 @@
+/* Page-wide defaults, and the two type "voices" that the components share. */
+
+html, body, #root { height: 100%; }
+
+body {
+    margin: 0;
+    overflow: hidden;
+    background: var(--gutter);
+    color: var(--ink);
+    font-family: var(--display);
+    font-optical-sizing: auto;
+    font-variation-settings: 'SOFT' 50, 'WONK' 0;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+button { font: inherit; font-variation-settings: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2.5px solid var(--outline); outline-offset: 3px; border-radius: 6px; }
+::selection { background: var(--gold); color: var(--ink); }
+
+/* The two voices of the page, used by name below. */
+.tile__title, .hero__name, .panel__title, .drawer__head h2, .drawer__name, .btn, .proof__label, .homekey__name, .tally__count, .panel__links a {
+    font-style: italic;
+    font-weight: 600;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1;
+}
+.tile__kicker, .tile__meta, .tile__wip, .hero__kicker, .hero__hint, .textlink, .proof__place, .panel__crumb, .panel__kicker,
+.panel__when, .panel__stack li, .panel__devhint, .drawer__list h3, .drawer__kicker, .comb__hint, .tally__total {
+    font-family: var(--label);
+    font-stretch: 84%;
+    font-style: normal;
+    font-variation-settings: normal;
+}

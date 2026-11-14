@@ -1,0 +1,6 @@
+/* Board page layout: the draggable stage and the world it moves. */
+
+.board { position: fixed; inset: 0; overflow: hidden; }
+.stage { position: absolute; inset: 0; touch-action: none; cursor: grab; }
+.stage.is-dragging, .stage.is-dragging .tile__face, .stage.is-dragging .tile__wall { cursor: grabbing; }
+.world { position: absolute; left: 50%; top: 50%; width: 0; height: 0; will-change: transform; }

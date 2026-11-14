@@ -1,0 +1,40 @@
+/* Design tokens: colours, type, easing, shapes. Every other stylesheet uses these by name. */
+
+:root {
+    --paper: #F3F9F2;
+    --paper-2: #E7F1E7;
+    --gutter: #EEF6EE;
+    --ink: #10231A;
+    --ink-2: #44594D;
+    --ink-3: #6E8477;
+    --sage: #8AA891;
+    --green: #1F6B3A;
+    --gold: #F5B700;
+    --line: rgba(16, 35, 26, 0.14);
+    /* The mascot's colours. The controls borrow its outline so they read as one family. */
+    --dog: #FFB6C1;
+    --dog-dark: #815b61;
+    --outline: #0E1512;
+
+    /* TYPE. Two families, each doing one job.
+       Fraunces is a "soft serif" with two unusual dials: SOFT rounds its
+       corners and WONK swaps in its eccentric italic letterforms. Big italic
+       titles turn both all the way up; reading text turns them down. It also
+       redraws itself for the size it is set at (optical sizing).
+       Bricolage Grotesque, set narrow, does the small capital labels. */
+    --display: 'Fraunces', Georgia, 'Times New Roman', serif;
+    --label: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+
+    --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --spring: cubic-bezier(0.3, 1.5, 0.5, 1);
+    --hex: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+
+/* --lift is how far a hex key's top sits above (negative) or below (positive)
+   its resting height. Registering it lets CSS animate it. (The board tiles
+   use a cheaper transform-only version of the same idea: see .tile__mover.) */
+@property --lift {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 0px;
+}

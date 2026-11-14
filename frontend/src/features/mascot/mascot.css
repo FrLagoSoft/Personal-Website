@@ -1,0 +1,95 @@
+/* The mascot and its speech bubble. */
+
+/* Every part is posed by the simulation in Mascot.jsx; CSS only supplies the ink. */
+.mascot {
+    --size: 156px;
+    position: fixed;
+    z-index: 110;
+    left: 0;
+    bottom: 10px;
+    width: var(--size);
+    margin-left: calc(var(--size) / -2);
+    pointer-events: none;
+    will-change: transform;
+    transition: opacity 0.3s, visibility 0.3s;
+}
+.mascot[data-hidden='true'] { opacity: 0; visibility: hidden; }
+.mascot svg { display: block; width: 100%; overflow: visible; }
+.mascot__hit { pointer-events: auto; cursor: grab; touch-action: none; }
+.mascot[data-held] .mascot__hit { cursor: grabbing; }
+.mascot__fill { fill: var(--dog); }
+.mascot__line { stroke: var(--outline); stroke-width: 4; stroke-linejoin: round; }
+polygon.mascot__line:not(.mascot__fill) { fill: none; }
+.mascot__stripes path { fill: none; stroke: var(--dog-dark); stroke-width: 6.5; stroke-linecap: round; stroke-linejoin: round; }
+.mascot__mouth { fill: var(--outline); stroke: var(--outline); stroke-width: 2.5; stroke-linejoin: round; }
+.mascot__curl { fill: none; stroke: var(--outline); stroke-width: 3.6; stroke-linecap: round; }
+.mascot__shadow { fill: var(--ink); }
+.mascot__emote {
+    font-family: var(--display);
+    font-size: 58px;
+    font-weight: 800;
+    text-anchor: middle;
+    fill: var(--outline);
+    paint-order: stroke fill;
+    stroke: #FFFFFF;
+    stroke-width: 7px;
+    stroke-linejoin: round;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: emote 1.3s var(--ease) both;
+    pointer-events: none;
+}
+.mascot__emote.is-heart { fill: #E5484D; }
+.mascot__emote.is-spark { fill: var(--gold); font-size: 66px; }
+.mascot__emote.is-z { fill: var(--ink-3); font-size: 44px; font-style: italic; animation-duration: 1.4s; }
+@keyframes emote {
+    0% { opacity: 0; transform: translateY(20px) scale(0.3) rotate(-12deg); }
+    25% { opacity: 1; transform: translateY(-12px) scale(1.15) rotate(6deg); }
+    70% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-64px) scale(0.9) rotate(-4deg); }
+}
+
+/* What it says. Inked like the dog, with a hard shadow like the tiles. */
+.bubble {
+    --tail: 40px;
+    position: fixed;
+    z-index: 111;
+    left: 0;
+    bottom: 10px;
+    max-width: min(330px, calc(100vw - 20px));
+    padding: 13px 18px 14px;
+    border: 2.5px solid var(--outline);
+    border-radius: 20px;
+    background: #FFFFFF;
+    box-shadow: 0 5px 0 var(--outline);
+    font-size: 1.08rem;
+    line-height: 1.36;
+    color: var(--outline);
+    cursor: pointer;
+    opacity: 0;
+    scale: 0.7;
+    transform-origin: var(--tail) 100%;
+    pointer-events: none;
+    transition: opacity 0.16s, scale 0.3s var(--spring);
+}
+.bubble[data-show] { opacity: 1; scale: 1; pointer-events: auto; }
+.bubble::after {
+    content: '';
+    position: absolute;
+    left: calc(var(--tail) - 9px);
+    bottom: -10.5px;
+    width: 18px;
+    height: 18px;
+    border: solid var(--outline);
+    border-width: 0 2.5px 2.5px 0;
+    border-radius: 0 0 5px 0;
+    background: #FFFFFF;
+    transform: rotate(45deg);
+}
+.bubble__ghost, .bubble__text { display: block; white-space: pre-line; text-wrap: pretty; }
+.bubble__ghost { visibility: hidden; }
+.bubble__text { position: absolute; inset: 13px 18px auto; }
+
+@media (max-width: 760px) {
+    .bubble { font-size: 1rem; max-width: min(280px, calc(100vw - 20px)); }
+}
