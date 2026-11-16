@@ -18,7 +18,10 @@ src/
 │   ├── controls/         Hex-key buttons, progress tally, index drawer
 │   ├── mascot/           The dog: Mascot.jsx, remote.js (how pages talk to it),
 │   │                     lines.js (everything it says)
-│   └── sound/            Synthesized sound effects and music
+│   ├── sound/            Sound effects and music: synthesized, or your own files
+│   └── weather/          The weather over the board: the clock that picks it
+│                         (weather.js) and the rain, snow, leaves and meteors
+│                         drawn over everything (WeatherLayer.jsx)
 ├── shared/               Used across features; knows nothing about any of them
 │   ├── ui/               Icon, shared button styles
 │   ├── hooks/            useNarrow, useStableCallback

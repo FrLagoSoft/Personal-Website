@@ -9,7 +9,7 @@
 //   id      unique, lowercase, no spaces. Also the photo prefix (see content/photos/README.md)
 //   tile    short name printed on the hexagon (keep it under ~22 characters)
 //   title   full name shown in the side panel
-//   kicker  tiny uppercase label above the name
+//   kicker  tiny uppercase label above the name (I took this out because it was vibecoded asf lowkey..)
 //   when    date or period
 //   role    what you were (optional)
 //   lead    one or two sentences: what it is and why it matters
@@ -22,8 +22,7 @@
 
 export const PROFILE = {
     name: 'Gabriel Lago',
-    kicker: 'Computer Science · FIU · Miami',
-    tagline: 'AI systems, developer tools and hardware. Built fast, then shown working in front of judges.',
+    tagline: 'Venezuelan CS Undergrad. I have built AI systems, hardware projects, and some other cool stuff!',
     // The three chips on the landing page.
     proof: [
         { place: '1st', label: 'BoxLang + AI Hackathon', to: 'agent-factory' },
@@ -44,14 +43,14 @@ export const ME = {
     id: 'me',
     tile: 'Gabriel Lago',
     title: 'Gabriel Lago',
-    kicker: 'Start here',
+    kicker: 'Click here!',
     when: 'Miami, FL',
-    role: 'Computer science student, Florida International University',
-    lead: 'I build AI systems, developer tools and hardware, and I like the part where it has to work live.',
+    role: 'Computer Science undergraduate at Florida International University',
+    lead: 'Hello! I am a Venezuelan CS Undergrad studying in FIU. I have built several hardware and software projects, all having their own quirks and unique uses. I hope you enjoy this website, it took me a while to make it!',
     body: [
-        'By day I work campus IT at FIU: more than 300 Cisco VoIP phones and the switches, access points and UPS units behind them. On weekends I build at hackathons.',
-        'Fall 2026 went like this: first place at the BoxLang + AI Hackathon, a podium in the hardware challenge at Knight Hacks IX, and a win at SharkByte.',
-        'This site is a board. Every tile is something I built, shipped, fixed or learned. Open a field, then pick a tile.',
+        'Usually, on a daily basis, I am often just working on my campus job as a Student IT. I manage the deployment and management of lots of Cisco devices, including phones, switches, access points, etc. On available weekends, I build at hackathons.',
+        'Fall 2026 is currently going like this: first place at the BoxLang + AI Hackathon, a podium in the hardware challenge at Knight Hacks IX, and a win at SharkByte. I am going to participate in HackJam this 21st, so be on the lookout for that!',
+        'About this site... this site is a board, and every tile that you click on is like a story. Every tile is something I built, shipped, fixed or learned. Open a "parent tile", and then open its "child tile" to see the story behind it.',
     ],
     stack: ['English', 'Spanish', 'French'],
     links: [
@@ -72,7 +71,7 @@ export const CATEGORIES = [
         icon: 'trophy',
         border: 'reeded',       // edge pattern on the tile: reeded | blueprint | circuit | staff | diploma | stitch
         iconSet: 'Hackathon',   // public/assets/<iconSet>1.svg … 4.svg float in the background when this field is open
-        blurb: 'Weekends with a deadline.',
+        blurb: 'They are fun experiences, filled with kind people. I also win alot of them, teeheee!',
         colors: { face: '#F5B700', wall: '#B98500', wall2: '#A37400', ink: '#1F1600', deep: '#8A6200', tint: [250, 232, 168] },
         entries: [
             {
@@ -119,14 +118,23 @@ export const CATEGORIES = [
             {
                 id: 'sharkbyte',
                 tile: 'SharkByte',
-                title: 'SharkByte 2026',
+                title: 'SharkByte 2026: an AI gym coach',
                 kicker: 'Winner',
                 medal: 'gold',
                 when: 'SharkByte AI Hackathon · Nov 2026',
-                lead: 'The third result of the fall, and the newest. It is days old, so the full write-up is still on its way.',
-                points: [],
-                stack: [],
-                links: [],
+                role: 'Client side, hardware and AI prompting, on a team of four',
+                lead: 'An AI gym coach that watches your form. A camera counts every squat and push-up and measures it, while a wearable down your spine reads how your back is bending.',
+                points: [
+                    'I built the whole client side: the app you train in, with live coaching, trends, advice, and games you play by exercising.',
+                    'And all of the hardware: a compression shirt with four motion sensors down the spine, run by an ESP32.',
+                    'Three of the sensors share one address, so each has its own select wire and they are read in turn on a single I2C bus.',
+                    'A two-step calibration (stand straight, then bend forward) sets it up for each person.',
+                    'Readings go over ESP-NOW to a base station on the laptop, then into the app next to the camera data.',
+                    'I also worked on the prompting behind the report Gemini writes after each workout.',
+                    'Behind it all, the team\'s server counts reps from joint angles and rejects the ones that do not reach depth.',
+                ],
+                stack: ['React Native', 'Expo', 'TypeScript', 'ESP32', 'C++', 'IMU sensors', 'I2C', 'ESP-NOW', 'MediaPipe', 'Gemini', 'FastAPI'],
+                links: [{ label: 'Source', href: 'https://github.com/ericgessa/sharkbyte-2026' }],
             },
             {
                 id: 'crintx',
@@ -152,7 +160,7 @@ export const CATEGORIES = [
         icon: 'cube',
         border: 'blueprint',
         iconSet: 'Projects',
-        blurb: 'Things that kept going after the weekend.',
+        blurb: 'These are the things I work on, 24/7. Some are finished, some are WIP, all are awsome.',
         colors: { face: '#E5484D', wall: '#A82A2F', wall2: '#8F2227', ink: '#FFFFFF', deep: '#B4232A', tint: [249, 208, 209] },
         entries: [
             {
@@ -170,6 +178,19 @@ export const CATEGORIES = [
                 ],
                 stack: ['Python', 'Jupyter', 'Chrome extension', 'JavaScript'],
                 links: [{ label: 'Source', href: 'https://github.com/FrLagoSoft/BLEEMO' }],
+            },
+            {
+                // Written from the repo's branch and file names only: check it, and add what YOUR part was.
+                id: 'inklings',
+                tile: 'Inklings',
+                title: 'Inklings',
+                kicker: 'Team project',
+                wip: true,
+                when: 'Oct 2026 · ongoing',
+                lead: 'A multiplayer drawing game for Android, built with a team in Kotlin. Every stroke travels live between players over WebSockets.',
+                points: [],
+                stack: ['Kotlin', 'Android', 'WebSockets'],
+                links: [{ label: 'Repo', href: 'https://github.com/FrLagoSoft/inkorporate-it' }],
             },
             {
                 id: 'boxlang-oss',
@@ -235,11 +256,11 @@ export const CATEGORIES = [
     {
         id: 'toolkit',
         dir: 0,
-        label: 'Toolkit',
+        label: 'My Toolkit',
         icon: 'terminal',
         border: 'circuit',
         iconSet: 'CodeImage',
-        blurb: 'What I reach for, and where I used it.',
+        blurb: 'This is my general techstack for projects. Can you try to guess what my favorite programming language is?',
         colors: { face: '#20262E', wall: '#0B0E12', wall2: '#000000', ink: '#FFFFFF', deep: '#20262E', tint: [197, 204, 214] },
         entries: [
             {
@@ -325,7 +346,7 @@ export const CATEGORIES = [
                 tile: 'Java & BoxLang',
                 title: 'Java and BoxLang',
                 kicker: 'Language',
-                lead: 'Java from coursework; BoxLang from the hackathon I won with it.',
+                lead: 'Java from coursework; BoxLang from the hackathon. I won with it!!',
                 points: [
                     'The Agent Factory backend, written in BoxLang.',
                     'Runtime work on BoxLang itself, in Java.',
@@ -350,11 +371,11 @@ export const CATEGORIES = [
     {
         id: 'life',
         dir: 1,
-        label: 'Off the clock',
+        label: 'Off the clock stuff',
         icon: 'note',
         border: 'staff',
         iconSet: 'Extracurricular',
-        blurb: 'The rest of the person.',
+        blurb: 'The rest of what makes me. blahblahbajahabhab',
         colors: { face: '#7C3AED', wall: '#5521B5', wall2: '#461A99', ink: '#FFFFFF', deep: '#6527D9', tint: [221, 208, 251] },
         entries: [
             {
@@ -406,7 +427,7 @@ export const CATEGORIES = [
         icon: 'cap',
         border: 'diploma',
         iconSet: 'education',
-        blurb: 'Where the foundations came from.',
+        blurb: 'Where my foundations came from. Aside from my garage. That is the REAL learning spot',
         colors: { face: '#2456E0', wall: '#1637A0', wall2: '#112C85', ink: '#FFFFFF', deep: '#1D46C4', tint: [203, 216, 250] },
         entries: [
             {
@@ -461,7 +482,7 @@ export const CATEGORIES = [
         icon: 'briefcase',
         border: 'stitch',
         iconSet: 'Job',
-        blurb: 'Paid to keep things running.',
+        blurb: 'The stuff I do for hype. And also money, that too',
         colors: { face: '#F08A3C', wall: '#B55F1C', wall2: '#9C5015', ink: '#1F0E00', deep: '#A8510F', tint: [250, 217, 188] },
         entries: [
             {

@@ -45,7 +45,10 @@ export function useCamera(stageRef, boundsRef) {
     const flyTo = useCallback((tx, ty, ts, instant = false) => {
         stop()
         if (instant) { x.set(tx); y.set(ty); s.set(ts); return }
-        const spring = { type: 'spring', stiffness: 120, damping: 22, mass: 1 }
+        // Stiff and exactly damped: it arrives in about half a second and does not
+        // bounce. While the camera moves, the whole field is redrawn every frame,
+        // so the shorter the move, the shorter the expensive part.
+        const spring = { type: 'spring', stiffness: 170, damping: 26, mass: 1 }
         running.current = [animate(x, tx, spring), animate(y, ty, spring), animate(s, ts, spring)]
     }, [x, y, s, stop])
 

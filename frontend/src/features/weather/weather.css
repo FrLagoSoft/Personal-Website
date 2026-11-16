@@ -1,0 +1,187 @@
+/* The weather layer (WeatherLayer.jsx): over the board, under the controls.
+   Every animation in this file moves or fades a finished element (transform
+   and opacity only), which the browser can do without redrawing anything. */
+
+.weather {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* One weather's worth of things. It fades in when its weather arrives and out
+   when it leaves. */
+.wx {
+    position: absolute;
+    inset: 0;
+    animation: wx-out 3.6s ease forwards;
+}
+/* The fade-in ends and lets go (no "forwards"). A fade that stays attached
+   makes the browser draw the whole group into a spare full-screen image every
+   frame, just in case its opacity changes again. */
+.wx[data-on] { animation: wx-in 4s ease; }
+@keyframes wx-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wx-out { from { opacity: 1; } to { opacity: 0; } }
+
+/* ── Rain and snow: a tiled picture on a sheet that slides down ─────────── */
+/* The sheet is one picture taller than its box and slides down by exactly one
+   picture, so the loop is seamless. */
+.wx__sheet {
+    position: absolute;
+    inset: -512px 0 0 0;
+    background-repeat: repeat;
+    will-change: transform;
+    animation: wx-fall var(--fall, 1s) linear infinite;
+}
+@keyframes wx-fall { to { transform: translateY(var(--tile, 512px)); } }
+
+/* Rain falls at a slant, towards wherever the wind is blowing: the whole
+   sheet is turned a few degrees, and made bigger so its corners stay covered. */
+.wx__tilt {
+    position: absolute;
+    inset: -17% -7%;
+    transform: rotate(calc(var(--dir) * -9deg));
+}
+.wx--rain .wx__sheet { --fall: 0.42s; background-size: 512px; }
+
+/* Where a drop lands: a ring that opens and fades. */
+.wx__ring {
+    position: absolute;
+    width: 64px;
+    height: 27px;
+    margin: -13px 0 0 -32px;
+    border: 1.5px solid rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(66, 98, 146, 0.18);
+    animation: wx-ring var(--dur) ease-out var(--delay) infinite;
+}
+@keyframes wx-ring {
+    from { transform: scale(0.08); opacity: 0.95; }
+    to { transform: scale(1); opacity: 0; }
+}
+
+.wx__flash { position: absolute; inset: 0; background: #FFFFFF; opacity: 0; }
+
+/* Snow drifts from side to side as it comes down. */
+.wx__drift { position: absolute; inset: 0 -40px; animation: wx-sway 3.6s ease-in-out infinite alternate; }
+.wx__drift--back { animation-duration: 5.1s; animation-direction: alternate-reverse; }
+@keyframes wx-sway { from { transform: translateX(-26px); } to { transform: translateX(26px); } }
+.wx--snow .wx__sheet--near { --fall: 7.5s; background-size: 512px; }
+.wx--snow .wx__sheet--far { --fall: 11s; --tile: 330px; inset: -330px 0 0 0; background-size: 330px; opacity: 0.7; }
+
+/* ── Wind: leaves tumbling past, white streaks in a gust ────────────────── */
+/* Everything is built blowing left to right. When the wind blows the other
+   way, each leaf and streak simply plays its crossing backwards. (Mirroring
+   the whole layer would also work, but makes the browser draw the layer into
+   a spare image first, every frame.) */
+.weather[data-dir='-1'] .wx__leaf { animation-direction: reverse, alternate, normal; }
+.weather[data-dir='-1'] .wx__gust { animation-direction: reverse; }
+/* A leaf moves three ways at once: across (translate), up and down (transform)
+   and round (rotate). Those are three separate CSS properties, so one element
+   can run all three without them overwriting each other. */
+.wx__leaf {
+    position: absolute;
+    left: 0;
+    top: var(--top);
+    width: var(--size);
+    height: calc(var(--size) * 0.62);
+    border: 1px solid rgba(14, 21, 18, 0.45);
+    border-radius: 100% 0;
+    background: var(--color);
+    animation:
+        wx-blow var(--dur) linear var(--delay) infinite,
+        wx-bob calc(var(--dur) * 0.37) ease-in-out infinite alternate,
+        wx-spin var(--spin) linear infinite;
+}
+@keyframes wx-blow { from { translate: -6vw 0; } to { translate: 106vw 0; } }
+@keyframes wx-bob { from { transform: translateY(calc(var(--sway) * -1)); } to { transform: translateY(var(--sway)); } }
+@keyframes wx-spin { to { rotate: 360deg; } }
+
+.wx__gust {
+    position: absolute;
+    left: 0;
+    top: var(--top);
+    width: var(--len);
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+    opacity: 0;
+}
+.weather[data-gust='true'] .wx__gust { animation: wx-gust 0.8s linear var(--delay) infinite; }
+@keyframes wx-gust {
+    0% { transform: translateX(-30vw); opacity: 0; }
+    15%, 85% { opacity: 1; }
+    100% { transform: translateX(120vw); opacity: 0; }
+}
+
+/* ── Night: fireflies wandering, and a shooting star every so often ─────── */
+.wx__fly {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    margin: -22px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 238, 140, 1) 0, rgba(255, 238, 140, 0.5) 24%, rgba(255, 238, 140, 0) 68%);
+    animation:
+        wx-wander var(--dur) ease-in-out var(--delay) infinite alternate,
+        wx-glow var(--pulse) ease-in-out infinite alternate;
+}
+@keyframes wx-wander { to { transform: translate(var(--dx), var(--dy)); } }
+@keyframes wx-glow { from { opacity: 0.15; } to { opacity: 1; } }
+
+/* Most of each cycle the shooting star waits, invisible; then it crosses. */
+.wx__shoot {
+    position: absolute;
+    left: 12%;
+    top: 9%;
+    width: 150px;
+    height: 2.5px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, rgba(255, 250, 225, 0.95));
+    opacity: 0;
+    animation: wx-shoot 19s linear 6s infinite;
+}
+.wx__shoot--b { left: 58%; top: 20%; animation-duration: 27s; animation-delay: 15s; }
+@keyframes wx-shoot {
+    0%, 95% { transform: translate(0, 0) rotate(24deg); opacity: 0; }
+    96% { opacity: 0.95; }
+    100% { transform: translate(34vw, 15vw) rotate(24deg); opacity: 0; }
+}
+
+/* ── Meteors: created by WeatherLayer.jsx one at a time, gone when they land ─ */
+/* The bright end is the head. It is placed by its head, and turned to face
+   the way it is travelling. */
+.wx__meteor {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 230px;
+    height: 7px;
+    margin: -3.5px 0 0 -230px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, transparent, rgba(255, 196, 120, 0.45) 55%, rgba(255, 240, 190, 1));
+    transform-origin: 100% 50%;
+    will-change: transform;
+}
+.wx__meteor::after {
+    content: '';
+    position: absolute;
+    right: -30px;
+    top: -28px;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 244, 205, 1) 0, rgba(255, 228, 160, 0.55) 26%, rgba(255, 228, 160, 0) 68%);
+}
+.wx__impact { position: absolute; border: 5px solid rgba(255, 240, 200, 0.95); border-radius: 50%; }
+.wx__spark {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 16px;
+    height: 2.5px;
+    margin: -1px 0 0 -8px;
+    border-radius: 2px;
+    background: rgba(255, 224, 150, 0.95);
+}

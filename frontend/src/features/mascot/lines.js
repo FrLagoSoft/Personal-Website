@@ -2,9 +2,9 @@
 // number or a name gets filled in. Where there is a list, one is picked at random.
 //
 // The mascot has no name yet. Give it one here and it will introduce itself.
-export const MASCOT_NAME = ''
+export const MASCOT_NAME = 'Seymour'
 
-const me = MASCOT_NAME ? `I'm ${MASCOT_NAME}.` : 'I live on this board.'
+const me = MASCOT_NAME ? `I'm ${MASCOT_NAME}.` : 'I live on this board. Quite lonely, I know. I am an extension of the guy you see on your right.'
 
 export const LINES = {
     // Landing page
@@ -12,15 +12,15 @@ export const LINES = {
 
     // First visit to the board, one step at a time.
     tutorial: [
-        `Hi! ${me} See the six coloured tiles? Press one to open it.`,
-        'Look, they came out. Press any of them to read the story behind it.',
-        'That is all there is to it. Drag to look around, scroll or pinch to zoom. Press me if you ever want a hint.',
+        `Hi! ${me} so, you see any of those six coloured tiles? Press one to open it! Promise it's worth it`,
+        'Look, more hexagons came out! Press any of them to read the story behind them. I hope you have a good computer!',
+        'That is all there is to it, although there are secrets! Drag to look around, scroll or pinch to zoom. Press me if you ever want a hint on anything...teehee',
     ],
 
     // The "?" key.
-    help: 'Press a coloured tile to open it. Press a tile that comes out to read it. Drag to move, scroll or pinch to zoom.\nKeys:  /  index   ← →  next tile   F  fit   M  music   Esc  close',
+    help: 'Press a coloured "parent" hexagon to open it. Press a "child" hexagon that comes out of it to read it. Drag to move, scroll or pinch to zoom.\nKeys:  /  index   ← →  next tile   F  fit   M  music   Esc  close',
 
-    welcomeBack: (seen, total) => `Welcome back! You have read ${seen} of ${total} so far.`,
+    welcomeBack: (seen, total) => `Welcome back! You have read ${seen} of ${total} hexagons so far.`,
 
     // First time each category is opened: label and blurb come from content.js.
     opened: (label, blurb) => `${label}. ${blurb}`,
@@ -38,15 +38,31 @@ export const LINES = {
     hintLeft: left => `${left} tiles still unread. No rush.`,
 
     // Being touched
-    pet: ['Hehe.', 'Right there. That is the spot.', 'Six sides, one eye, all dog.', 'Woof. I think that is what I say.', 'Go on, I will keep up with you.'],
-    lifted: ['Whoa!', 'Hey, hey, hey!', 'I can see the whole board from here!'],
-    dropped: ['Again?', 'Okay. I am fine. I am fine.', 'Soft landing. Mostly.'],
-    woken: ['Huh? I am up. I am up.', 'I was resting my eye.'],
+    pet: ['Teehe.', 'Right there, that is the spot!', 'Six sides, all hexagony, for you!', 'Woof.', 'I am growing rather tired of this.', 'Did you know I can do a backflip? Find the hidden key!'],
+    lifted: ['Whoa!!!!!!', 'Hey, Hey!, HEYYY!', 'I can see the whole board from here!', 'I think Im gonna be sick...'],
+    dropped: ['Can we go again?', 'Okay... I am fine...', 'Soft landing. Dork.'],
+    woken: ['Huh?', 'I was resting my eye...', 'In life, the only thing that is certain is that I will always be here for you.'],
 
     // Controls
-    musicOn: 'Oh, I like this one.',
-    musicOff: 'Quiet is good too.',
-    index: 'Everything, in one list. For when you would rather read than wander.',
+    musicOn: 'Oh, you are gonna LOVE this one! I promise!', 
+    musicOff: 'Being quiet is respectable too. I guess. ',
+    index: 'Here is everything that I am, on a singular list. Enjoy!',
+
+    // The weather. One of these when it changes; thunder and meteors have their own.
+    weather: {
+        sunny: ['The sun is back! gotta get my shades on.', 'Clear skies. I can dry off my "fur"!'],
+        windy: ['whoa, Whoa, WHOAA! Hold on to something!', 'It is so Windyyyyyyy!'],
+        rain: ['Rain! Good thing I brought this...', 'Here it comes... lets get my umbrella up!'],
+        snow: ['Snow! I LOVE the snow!', 'It is snowing! Looks like my Scarf is ready!'],
+        stars: ['Quiet... The stars are out. ', 'Night already? Look up!'],
+        meteors: ['Meteor shower! Getting my hard hat on.', 'Incoming!!! Mind your tiles!!'],
+        aurora: ['Oh my..... Look at the sky!', 'The lights are out tonight!'],
+    },
+    thunder: ['YIKES!', 'That was close...', 'I am not scared... YOU are scared!!!'],
+    impact: ['Ooh, nice one!', 'Did you see that?!', 'That one played a note!'],
+
+    // The hidden key (B).
+    flip: ['TA-DA!', 'Told you I could!'],
 }
 
-export const pick = list => (Array.isArray(list) ? list[Math.floor(Math.random() * list.length)] : list)
+export const pick =list => (Array.isArray(list) ? list[Math.floor(Math.random() * list.length)] : list)

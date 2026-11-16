@@ -24,6 +24,12 @@ polygon.mascot__line:not(.mascot__fill) { fill: none; }
 .mascot__mouth { fill: var(--outline); stroke: var(--outline); stroke-width: 2.5; stroke-linejoin: round; }
 .mascot__curl { fill: none; stroke: var(--outline); stroke-width: 3.6; stroke-linecap: round; }
 .mascot__shadow { fill: var(--ink); }
+/* Rain running off the edge of the umbrella. */
+.mascot__drip {
+    fill: #8FC1F5;
+    stroke: var(--outline);
+    stroke-width: 2;
+}
 .mascot__emote {
     font-family: var(--display);
     font-size: 58px;
@@ -73,6 +79,7 @@ polygon.mascot__line:not(.mascot__fill) { fill: none; }
     transition: opacity 0.16s, scale 0.3s var(--spring);
 }
 .bubble[data-show] { opacity: 1; scale: 1; pointer-events: auto; }
+.bubble[data-passive='true'] { pointer-events: none; }
 .bubble::after {
     content: '';
     position: absolute;

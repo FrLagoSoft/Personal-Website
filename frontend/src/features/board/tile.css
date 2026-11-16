@@ -7,6 +7,33 @@
    things that do move use transform only. */
 .slot { position: absolute; width: 0; height: 0; }
 
+/* An entry tile's place on the board. It waits tucked in towards its category,
+   shrunk and invisible, and is dealt out when the category opens.
+   These are transitions on transform and opacity only, which the graphics card
+   runs on its own; and a transition ends when it arrives, so nothing is left
+   running afterwards. */
+.slot--entry {
+    visibility: hidden;
+    opacity: 0;
+    transform: translate(var(--from-x), var(--from-y)) scale(0.3);
+    transition:
+        transform 0.24s cubic-bezier(0.5, 0, 0.9, 0.4) var(--back-delay),
+        opacity 0.2s ease var(--back-delay),
+        visibility 0s linear calc(0.24s + var(--back-delay));
+}
+.slot--entry[data-out] {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+    transition:
+        transform 0.7s var(--spring-out) var(--out-delay),
+        opacity 0.22s ease var(--out-delay),
+        visibility 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+    .slot--entry, .slot--entry[data-out] { transition-duration: 0.01s; transition-delay: 0s; }
+}
+
 .tile {
     --depth: 12px;
     --y: 0px;        /* how far the top face sits above (negative) or below its resting height */
@@ -225,10 +252,13 @@
     width: 45%;
     background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.8), transparent);
     transform: translateX(-160%) skewX(-18deg);
-    animation: glint 1.1s 0.7s var(--ease) both;
+    /* "backwards", not "both": when the glint has crossed, the animation must
+       end and let go. One that stays attached keeps the tile as a special layer
+       and makes the browser redraw its hexagon mask on every single frame. */
+    animation: glint 1.1s 0.7s var(--ease) backwards;
 }
 @media (hover: hover) {
-    .tile[data-medal]:hover .tile__top::before { animation: glint-again 0.9s var(--ease) both; }
+    .tile[data-medal]:hover .tile__top::before { animation: glint-again 0.9s var(--ease) backwards; }
 }
 @keyframes glint { to { transform: translateX(340%) skewX(-18deg); } }
 @keyframes glint-again { to { transform: translateX(340%) skewX(-18deg); } }

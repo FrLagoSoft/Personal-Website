@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { HEX_W, HEX_H, STEP_X, STEP_Y, hexDist, wedgeCell, cellKey, TILE_CELLS } from './layout.js'
 import { clamp } from '@/shared/utils/math.js'
+import { weather } from '@/features/weather'
 import './hex-field.css'
 
 // The living background: one <canvas> that draws the hex lattice the tiles sit
@@ -12,6 +13,7 @@ import './hex-field.css'
 //   wave      { x, y, t } where and when the last open/close happened
 //   ripples   [{ x, y, t, color }] rings of colour from a click
 //   bursts    [{ x, y, t, dir }] category icons thrown out of a tile
+//   glows     [{ x, y, t, color }] a spot that glows and fades (a meteor strike)
 //   hover     { x, y, color } | null: the tile under the pointer; the field
 //             glows towards its colour
 //
@@ -20,11 +22,19 @@ import './hex-field.css'
 // its angle around the centre, so the board becomes a soft colour wheel of
 // whatever is open.
 //
+// WEATHER (only with the `withWeather` prop, so the landing page stays clear).
+// Every weather pulls all the colours towards its own light: grey-blue for
+// rain, deep navy at night. On top of that: puddles gather in the rain, snow
+// settles, stars come out, the aurora washes across the cells, a gust of wind
+// sweeps over them, and a meteor leaves a glow where it lands. Things that
+// fall through the air are drawn by a different, cheaper layer: WeatherLayer.
+//
 // PERFORMANCE. This used to repaint every cell, every frame, forever. Now there
 // are two kinds of frame:
-//   FULL     the whole screen. 60 a second, but only while the board itself is
-//            changing (the camera, a colour wave, a ripple). Otherwise four a
-//            second, which is plenty for the slow "breathing".
+//   FULL     the whole screen. 60 a second while the camera moves (the cells
+//            must keep up with the tiles), 30 a second while only colours are
+//            changing (a wave, a ripple), and four a second otherwise, which
+//            is plenty for the slow "breathing".
 //   PATCH    only the small rectangles where something is actually different:
 //            around the pointer, around a hovered tile's glow, under each
 //            floating icon. 30 a second, and a fraction of the pixels.
@@ -33,16 +43,31 @@ import './hex-field.css'
 // of a high-density screen.
 
 const BASE = [221, 234, 222]
+const GUTTER = [238, 246, 238] // the colour between the cells
 const FLIP_MS = 400        // how long one cell takes to flip
 const WAVE_MS = 30         // delay per cell of distance as a colour change spreads
 const RIPPLE_SPEED = 1.5   // world px per ms
 const RIPPLE_LIFE = 1500
 const BURST_LIFE = 950
 const GLOW_RADIUS = 720    // world px
+const SPOT_LIFE = 2600     // how long a meteor's glow lasts
+const SPOT_REACH = 330     // and how far it spreads, in world px
 const MAX_PIXELS = 2.6e6   // canvas resolution budget
 const ICONS_PER_FIELD = 7
 const ICON_SIZE = 86       // world px
 const ROUGH = 0b111001110011100 // the top three bits of each colour channel
+
+// How each weather lights the board: [red, green, blue, strength]. Every colour
+// on the field is pulled that far (0 → 1) towards that colour.
+const GRADE = {
+    sunny: [255, 246, 220, 0.05],
+    windy: [206, 228, 226, 0.14],
+    rain: [112, 132, 160, 0.46],
+    snow: [214, 224, 240, 0.5],
+    stars: [20, 28, 62, 0.82],
+    meteors: [26, 20, 54, 0.84],
+    aurora: [12, 24, 46, 0.86],
+}
 
 const easeOut = t => 1 - (1 - t) ** 3
 const easeBack = t => 1 + 2.2 * (t - 1) ** 3 + 1.2 * (t - 1) ** 2
@@ -93,6 +118,16 @@ function hexPath(ctx, x, y, hw, hh) {
     ctx.closePath()
 }
 
+// A four-pointed star.
+function starPath(ctx, x, y, r) {
+    const k = r * 0.2
+    ctx.moveTo(x, y - r)
+    ctx.lineTo(x + k, y - k); ctx.lineTo(x + r, y); ctx.lineTo(x + k, y + k)
+    ctx.lineTo(x, y + r)
+    ctx.lineTo(x - k, y + k); ctx.lineTo(x - r, y); ctx.lineTo(x - k, y - k)
+    ctx.closePath()
+}
+
 // ── Category icons, tinted once into small offscreen canvases ───────────────
 function loadIcons(palette, onReady) {
     const sets = []
@@ -132,7 +167,7 @@ function iconCells(dir) {
     return out
 }
 
-function HexField({ getCamera, field, palette }) {
+function HexField({ getCamera, field, palette, withWeather = false }) {
     const canvasRef = useRef(null)
 
     useEffect(() => {
@@ -157,6 +192,12 @@ function HexField({ getCamera, field, palette }) {
         const wake = (ms = 400) => { busyUntil = Math.max(busyUntil, performance.now() + ms) }
         const stir = (ms = 300) => { stirUntil = Math.max(stirUntil, performance.now() + ms) }
         const iconSets = palette ? loadIcons(palette, () => wake(200)) : []
+
+        // Weather state that builds up and wears off slowly.
+        let wet = 0, snowy = 0                // how soaked / snowed-under the board is, 0 → 1
+        let gusting = false, gustAt = -1e9, gustDir = 1
+        let gutter = ''
+        const starList = [], puddleList = []
 
         // Scratch arrays reused every frame.
         let cap = 512
@@ -191,11 +232,12 @@ function HexField({ getCamera, field, palette }) {
                     }
                     if (closed & (1 << dir)) icons.forEach(i => { if (i.dir === dir) i.dying = now })
                 }
-                wake(2600)
+                wake(Math.max(0, waveAt - now) + 1500)   // long enough for the wave to cross the screen
             }
             if (state.ripples.length || state.bursts.length) wake(200)
             while (state.ripples.length && now - state.ripples[0].t > RIPPLE_LIFE) state.ripples.shift()
             while (state.bursts.length && now - state.bursts[0].t > BURST_LIFE) state.bursts.shift()
+            while (state.glows?.length && now - state.glows[0].t > SPOT_LIFE) state.glows.shift()
             return state
         }
 
@@ -219,6 +261,33 @@ function HexField({ getCamera, field, palette }) {
             const ox = w / 2 + cam.x, oy = h / 2 + cam.y
             const moved = cam.x !== lastCam.x || cam.y !== lastCam.y || cam.s !== lastCam.s
 
+            // ── The weather: how it lights the board right now ──────────────
+            // Every colour becomes  colour × (1 − pull) + light.
+            let pull = 0, lightR = 0, lightG = 0, lightB = 0
+            let night = 0, aurora = 0, raining = 0, snowing = 0, fading = false
+            if (withWeather) {
+                const sky = weather.get(), m = weather.mix(now)
+                const a = GRADE[sky.prev], b = GRADE[sky.id]
+                pull = a[3] + (b[3] - a[3]) * m
+                lightR = a[0] * a[3] + (b[0] * b[3] - a[0] * a[3]) * m
+                lightG = a[1] * a[3] + (b[1] * b[3] - a[1] * a[3]) * m
+                lightB = a[2] * a[3] + (b[2] * b[3] - a[2] * a[3]) * m
+                fading = m < 1
+                aurora = weather.amount('aurora', now)
+                night = Math.min(1, weather.amount('stars', now) + weather.amount('meteors', now) + aurora)
+                raining = weather.amount('rain', now)
+                snowing = weather.amount('snow', now)
+                // The strip between the cells changes with the light too.
+                const strip = `rgb(${GUTTER[0] * (1 - pull) + lightR | 0},${GUTTER[1] * (1 - pull) + lightG | 0},${GUTTER[2] * (1 - pull) + lightB | 0})`
+                if (strip !== gutter) canvas.style.backgroundColor = gutter = strip
+                // A gust is starting: it will sweep across the cells for a second or so.
+                if (!calm && weather.amount('windy', now) > 0.3) {
+                    const wind = weather.wind(now)
+                    if (wind.force > 0.62 && !gusting) { gusting = true; gustAt = now; gustDir = wind.dir; wake(1500) }
+                    else if (wind.force < 0.5) gusting = false
+                }
+            }
+
             // The glow follows whatever tile is under the pointer.
             const hover = state?.hover
             const wantGlow = hover ? 1 : 0
@@ -227,11 +296,13 @@ function HexField({ getCamera, field, palette }) {
             if (glowing) stir(120); else glow.level = wantGlow
 
             // ── Which kind of frame is this? ────────────────────────────────
-            const busy = moved || now < busyUntil
-            const full = busy ? now - lastFull >= 15 : now - lastFull >= (calm ? 1000 : 250)
+            const spots = state?.glows
+            // (The aurora drifts slowly, so eight frames a second carry it.)
+            const busy = now < busyUntil || fading
+            const full = now - lastFull >= (moved ? 15 : busy ? 33 : aurora > 0 ? 125 : calm ? 1000 : 250)
             let patches = null
             if (!full) {
-                if (calm || now - lastPatch < 31 || (now >= stirUntil && !icons.length)) return
+                if (calm || now - lastPatch < 31 || (now >= stirUntil && !icons.length && !spots?.length)) return
                 // Everything that might look different from the last frame, as rectangles.
                 patches = stale
                 stale = []
@@ -243,6 +314,10 @@ function HexField({ getCamera, field, palette }) {
                 if (glow.level > 0.01 || glowing) {
                     const reach = GLOW_RADIUS * s + cellHalf
                     stale.push([ox + glow.x * s - reach, oy + glow.y * s - reach, reach * 2, reach * 2])
+                }
+                if (spots) for (const spot of spots) {
+                    const reach = SPOT_REACH * s + cellHalf
+                    stale.push([ox + spot.x * s - reach, oy + spot.y * s - reach, reach * 2, reach * 2])
                 }
                 patches = patches.concat(stale)
                 const half = (ICON_SIZE / 2 + 12) * s
@@ -258,7 +333,14 @@ function HexField({ getCamera, field, palette }) {
 
             const step = Math.min(now - Math.max(lastFull, lastPatch), 100)
             glow.level += (wantGlow - glow.level) * Math.min(1, step / 110)
-            if (full) { lastFull = now; lastCam = { x: cam.x, y: cam.y, s: cam.s } }
+            if (full) {
+                // Puddles gather over twenty seconds of rain and dry as slowly; snow takes longer to settle.
+                const since = Math.min(now - lastFull, 1000) / 1000
+                wet += ((raining > 0.5 ? 1 : 0) - wet) * Math.min(1, since / 20)
+                snowy += ((snowing > 0.5 ? 1 : 0) - snowy) * Math.min(1, since / 45)
+                lastFull = now
+                lastCam = { x: cam.x, y: cam.y, s: cam.s }
+            }
             lastPatch = now
             // The slow ambient light only moves on FULL frames. A PATCH frame reuses
             // the last one, so a cell it repaints matches the neighbours it did not.
@@ -270,6 +352,12 @@ function HexField({ getCamera, field, palette }) {
             const ripples = state?.ripples
             const near = 240 * Math.max(s, 0.5)
             const cellW = (HEX_W / 2) * s, cellH = (HEX_H / 2) * s + 7 * s
+            // Where the front of the current gust is, in world px (null when the air is still).
+            const gustAge = now - gustAt
+            const gustFront = gustAge < 1400
+                ? (gustDir > 0 ? -ox / s - 450 : (w - ox) / s + 450) + gustDir * (w / s + 900) * (gustAge / 1300)
+                : null
+            starList.length = puddleList.length = 0
 
             if (patches) {
                 ctx.save()
@@ -311,6 +399,22 @@ function HexField({ getCamera, field, palette }) {
                     }
                     let cr = rgb >> 16, cg = (rgb >> 8) & 255, cb = rgb & 255
 
+                    // The weather's light, then whatever has settled on the board.
+                    if (pull) { cr = cr * (1 - pull) + lightR; cg = cg * (1 - pull) + lightG; cb = cb * (1 - pull) + lightB }
+                    if (snowy > 0.01) {
+                        const k = snowy * (0.3 + 0.45 * c.hash)
+                        cr += (250 - cr) * k; cg += (252 - cg) * k; cb += (255 - cb) * k
+                    }
+                    // The aurora: slow bands of green and violet that drift across the cells.
+                    if (aurora > 0.01) {
+                        const band = Math.sin(c.x * 0.0016 + ambient * 0.00035 + 1.8 * Math.sin(c.y * 0.0011 - ambient * 0.00021))
+                        if (band > 0) {
+                            const k = band * Math.sqrt(band) * 0.6 * aurora * (0.6 + 0.4 * Math.sin(c.y * 0.002 + ambient * 0.0004 + c.hash * 6.28))
+                            const violet = 0.5 + 0.5 * Math.sin(c.x * 0.0009 - ambient * 0.00015 + c.y * 0.0006)
+                            cr += (70 + 100 * violet - cr) * k; cg += (255 - 135 * violet - cg) * k; cb += (170 + 85 * violet - cb) * k
+                        }
+                    }
+
                     if (!calm) {
                         // Slow breathing from the centre, and a few cells that glint.
                         let light = 0.03 * Math.sin(ambient * 0.0007 - c.dist * 0.6)
@@ -329,6 +433,12 @@ function HexField({ getCamera, field, palette }) {
                         const pd = 1 - Math.hypot(sx - pointer.x, sy - pointer.y) / near
                         if (pd > 0) { light += 0.16 * pd * pd; size *= 1 - 0.08 * pd }
 
+                        // A gust of wind flattens the cells for a moment as it passes over.
+                        if (gustFront !== null) {
+                            const band = 1 - Math.abs(c.x - gustFront) / 420
+                            if (band > 0) { light += 0.12 * band; size *= 1 - 0.09 * band }
+                        }
+
                         const a = Math.abs(light) * 2.2
                         if (light > 0) { cr += (255 - cr) * a; cg += (255 - cg) * a; cb += (255 - cb) * a }
                         else { cr += (150 - cr) * a; cg += (175 - cg) * a; cb += (155 - cb) * a }
@@ -343,6 +453,16 @@ function HexField({ getCamera, field, palette }) {
                             cr += (rp.color[0] - cr) * k; cg += (rp.color[1] - cg) * k; cb += (rp.color[2] - cb) * k
                             size *= 1 + 0.05 * band * (1 - age / RIPPLE_LIFE)
                         }
+
+                        // Where a meteor landed, the cells glow and slowly cool.
+                        if (spots) for (const spot of spots) {
+                            const age = now - spot.t
+                            if (age < 0 || age > SPOT_LIFE) continue
+                            const d = 1 - Math.hypot(c.x - spot.x, c.y - spot.y) / SPOT_REACH
+                            if (d <= 0) continue
+                            const k = d * (1 - age / SPOT_LIFE) ** 2 * 0.9
+                            cr += (spot.color[0] - cr) * k; cg += (spot.color[1] - cg) * k; cb += (spot.color[2] - cb) * k
+                        }
                     }
 
                     const hw = (HEX_W / 2) * s * size * flip
@@ -356,6 +476,16 @@ function HexField({ getCamera, field, palette }) {
                     keys[count] = ((cr >> 3) << 10) | ((cg >> 3) << 5) | (cb >> 3)
                     geo[count * 4] = sx; geo[count * 4 + 1] = sy; geo[count * 4 + 2] = hw; geo[count * 4 + 3] = (HEX_H / 2) * s * size
                     count++
+
+                    // Things that sit on a cell: about a quarter of them hold a star at
+                    // night, and about half collect a puddle in the rain.
+                    if (flip > 0.6) {
+                        if (night > 0.02 && c.hash > 0.55 && c.hash < 0.83) {
+                            const twinkle = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(ambient * 0.0021 + c.hash * 97))
+                            starList.push(sx + (c.hash - 0.69) * 3.5 * cellW, sy + ((c.hash * 7) % 1 - 0.5) * 0.8 * cellW, (9 + 15 * ((c.hash * 13) % 1)) * s * size, night * twinkle)
+                        }
+                        if (wet > 0.02 && c.hash < 0.55) puddleList.push(sx + (c.hash - 0.27) * cellW, sy + cellW * 0.22, cellW * (0.3 + 0.55 * c.hash) * wet * size)
+                    }
                 }
             }
 
@@ -377,6 +507,34 @@ function HexField({ getCamera, field, palette }) {
                 i = fillRun(sorted, count, i, -1, 0)
                 ctx.fillStyle = `rgb(${((key >> 10) << 3) + 3},${(((key >> 5) & 31) << 3) + 3},${((key & 31) << 3) + 3})`
                 ctx.fill()
+            }
+
+            // ── Rain water lying on the cells: a pale pool with a brighter glint ─
+            if (puddleList.length) {
+                ctx.beginPath()
+                for (let i = 0; i < puddleList.length; i += 3) {
+                    const x = puddleList[i], y = puddleList[i + 1], r = puddleList[i + 2]
+                    ctx.moveTo(x + r, y); ctx.ellipse(x, y, r, r * 0.42, 0, 0, Math.PI * 2)
+                }
+                ctx.fillStyle = 'rgba(255,255,255,0.17)'; ctx.fill()
+                ctx.beginPath()
+                for (let i = 0; i < puddleList.length; i += 3) {
+                    const x = puddleList[i] - puddleList[i + 2] * 0.3, y = puddleList[i + 1] - puddleList[i + 2] * 0.1, r = puddleList[i + 2] * 0.34
+                    ctx.moveTo(x + r, y); ctx.ellipse(x, y, r, r * 0.4, 0, 0, Math.PI * 2)
+                }
+                ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fill()
+            }
+
+            // ── Stars, in three brightnesses so each takes a single fill ────
+            if (starList.length) {
+                for (let level = 0; level < 3; level++) {
+                    ctx.beginPath()
+                    for (let i = 0; i < starList.length; i += 4) {
+                        if (Math.min(2, starList[i + 3] * 3 | 0) === level) starPath(ctx, starList[i], starList[i + 1], starList[i + 2] * (0.75 + 0.15 * level))
+                    }
+                    ctx.fillStyle = `rgba(255,248,214,${0.28 + 0.3 * level})`
+                    ctx.fill()
+                }
             }
 
             // ── Category icons resting on the empty cells of open fields ────
@@ -402,7 +560,8 @@ function HexField({ getCamera, field, palette }) {
                     }
                     if (icon.dying) wake(100)
                     const size = ICON_SIZE * s * pop
-                    ctx.globalAlpha = 0.5 * clamp(pop)
+                    // At night the icons fade back, so they do not compete with the stars.
+                    ctx.globalAlpha = 0.5 * clamp(pop) * (1 - 0.55 * night)
                     ctx.drawImage(img, x - size / 2, y - size / 2, size, size)
                 }
                 ctx.globalAlpha = 1
@@ -454,7 +613,7 @@ function HexField({ getCamera, field, palette }) {
             document.removeEventListener('pointerleave', onLeave)
             document.removeEventListener('visibilitychange', onVisibility)
         }
-    }, [getCamera, field, palette])
+    }, [getCamera, field, palette, withWeather])
 
     return <canvas ref={canvasRef} className="hexfield" aria-hidden="true" />
 }

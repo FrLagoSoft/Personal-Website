@@ -1,7 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useSearchParams } from 'react-router-dom'
-import { HexField, Tile, DetailPanel, useCamera, TILES, TILE_BY_ID, ENTRY_COUNT, HEX_W, HEX_H, boundsOf } from '@/features/board'
+import { HexField, Tile, DetailPanel, useCamera, TILES, TILE_BY_ID, ENTRY_COUNT, HEX_W, HEX_H, boundsOf, nearestCell } from '@/features/board'
 import { Controls, HomeKey, ZoomKeys, Progress, IndexDrawer } from '@/features/controls'
 import { useWipe } from '@/app/page-wipe'
 import { CATEGORIES } from '@/content/content.js'
@@ -11,10 +11,12 @@ import { useNarrow } from '@/shared/hooks/useNarrow.js'
 import { prefs, usePrefs } from '@/shared/state/prefs.js'
 import { audio } from '@/features/sound'
 import { mascot, LINES, pick } from '@/features/mascot'
+import { weather, useWeather, WeatherLayer, WEATHERS, WEATHER_IDS } from '@/features/weather'
 import './board.css'
 
 const hexToRgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))
 const CORE = TILES.filter(t => t.kind !== 'entry')       // centre + the six categories, always on the board
+const ENTRIES = TILES.filter(t => t.kind === 'entry')    // every other tile: on the page from the start, hidden until its category opens
 const CAT_IDS = new Set(CATEGORIES.map(c => c.id))
 // What the background needs to know about each category, indexed by direction.
 const PALETTE = []
@@ -40,9 +42,10 @@ function BoardPage() {
     const [fresh, setFresh] = useState(null)       // the tile that was just read for the first time
     const [nudge, setNudge] = useState(null)
     const [indexOpen, setIndexOpen] = useState(false)
+    const [settled, setSettled] = useState(false)   // false for the first half second, so tiles opened by the address bar still animate in
 
     const visited = useMemo(() => new Set(p.visited), [p.visited])
-    const field = useRef({ mask: 0, wave: null, ripples: [], bursts: [], hover: null })
+    const field = useRef({ mask: 0, wave: null, ripples: [], bursts: [], glows: [], hover: null })
     const getCamera = useCallback(() => ({ x: cam.x.get(), y: cam.y.get(), s: cam.s.get() }), [cam])
     const lesson = useRef(0)                       // which step of the first-visit walkthrough we are on
     const greeted = useRef(new Set())              // categories the mascot has already introduced
@@ -224,9 +227,44 @@ function BoardPage() {
         if (prefs.earn('index')) mascot.say(LINES.index, { low: true })
     }
 
+    // ── Weather ─────────────────────────────────────────────────────────────
+    // The weather cycle runs while the board is open: about five minutes each,
+    // in a random order. Two things in the address bar change that:
+    //   ?weather=rain   open on a particular weather
+    //   ?cycle=20       change every 20 seconds (for showing it off)
+    const sky = useWeather()
+    useEffect(() => {
+        const asked = params.get('weather')
+        const every = Number(params.get('cycle')) * 1000
+        weather.start({
+            id: WEATHER_IDS.includes(asked) ? asked : undefined,   // otherwise the one weather.plan() picked
+            stay: every >= 5000 ? every : undefined,
+        })
+        audio.setWeather(weather.get().id)
+        const off = [
+            weather.on('change', ev => audio.setWeather(ev.id)),
+            weather.on('thunder', () => audio.thunder()),
+            // A meteor has landed on the board.
+            weather.on('impact', ev => {
+                const now = performance.now()
+                audio.impact(ev.note)
+                field.current.glows.push({ x: ev.x, y: ev.y, t: now, color: [255, 176, 96] })
+                const hit = TILES.find(t => t.q === ev.q && t.r === ev.r)   // one that lands on a tile makes it jump
+                if (hit) {
+                    setNudge(hit.id)
+                    setTimeout(() => setNudge(n => (n === hit.id ? null : n)), 1300)
+                }
+            }),
+        ]
+        return () => { off.forEach(fn => fn()); weather.stop(); audio.setWeather('sunny') }
+        // Runs once, when the board opens.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
     // ── Arriving ────────────────────────────────────────────────────────────
     // Deep links: /hexagons?t=dronautics opens straight onto a tile.
     useEffect(() => {
+        const settle = setTimeout(() => setSettled(true), 500)
         lastTouch.current = performance.now()
         setField(open, null, 500)
         frame(open, null, true)
@@ -243,7 +281,7 @@ function BoardPage() {
                 else if (seen && seen < ENTRY_COUNT) mascot.say(LINES.welcomeBack(seen, ENTRY_COUNT), { low: true })
             }, 1700),
         ]
-        return () => { timers.forEach(clearTimeout); mascot.hush(); mascot.hide(false) }
+        return () => { clearTimeout(settle); timers.forEach(clearTimeout); mascot.hush(); mascot.hide(false) }
         // Runs once on arrival; later changes are driven by the visitor.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
@@ -291,6 +329,7 @@ function BoardPage() {
         else if (k === '-') cam.zoomAt(1 / 1.35, undefined, undefined, true)
         else if (k === '/') { e.preventDefault(); openIndex() }
         else if (k === '?') help()
+        else if (k === 'w' || k === 'W') weather.next()
     })
     useEffect(() => {
         window.addEventListener('keydown', onKey)
@@ -304,34 +343,38 @@ function BoardPage() {
     }
 
     const selectedTile = selected ? TILE_BY_ID[selected] : null
-    const entries = TILES.filter(t => t.kind === 'entry' && open.includes(t.cat.id))
 
     return (
-        <main className="board">
+        <main className="board" data-weather={sky} data-night={WEATHERS[sky].night || undefined}>
             <div className="stage" ref={stageRef} onClick={onStageClick}
                 onPointerDown={() => { audio.unlock(); lastTouch.current = performance.now() }}>
-                <HexField getCamera={getCamera} field={field} palette={PALETTE} />
+                <HexField getCamera={getCamera} field={field} palette={PALETTE} withWeather />
                 <motion.div className="world" style={{ x: cam.x, y: cam.y, scale: cam.s }}>
-                    <AnimatePresence>
-                        {entries.map(t => {
-                            const home = TILE_BY_ID[t.cat.id]
-                            const from = { x: (home.x - t.x) * 0.7, y: (home.y - t.y) * 0.7, scale: 0.3, opacity: 0 }
-                            const last = t.cat.entries.length - 1
-                            return (
-                                <motion.div
-                                    key={t.id}
-                                    className="slot"
-                                    style={{ left: t.x, top: t.y, zIndex: t.r + 20 }}
-                                    initial={from}
-                                    animate={{ x: 0, y: 0, scale: 1, opacity: 1, transition: { type: 'spring', stiffness: 250, damping: 21, delay: t.order * 0.055 } }}
-                                    exit={{ ...from, transition: { duration: 0.24, ease: [0.5, 0, 0.9, 0.4], delay: (last - t.order) * 0.03 } }}
-                                >
-                                    <Tile tile={t} selected={selected === t.id} visited={visited.has(t.id)} fresh={fresh === t.id}
-                                        nudge={nudge === t.id} onActivate={activate} onHover={hover} />
-                                </motion.div>
-                            )
-                        })}
-                    </AnimatePresence>
+                    {/* Every entry tile is here from the start, hidden. Opening a category
+                        only flips data-out, and CSS deals the tiles out from their category
+                        (see .slot--entry in tile.css). Nothing is created or destroyed, and the
+                        movement is run by the graphics card, so opening stays smooth. */}
+                    {ENTRIES.map(t => {
+                        const home = TILE_BY_ID[t.cat.id]
+                        const out = settled && open.includes(t.cat.id)
+                        return (
+                            <div
+                                key={t.id}
+                                className="slot slot--entry"
+                                data-out={out || undefined}
+                                style={{
+                                    left: t.x, top: t.y, zIndex: t.r + 20,
+                                    '--from-x': `${((home.x - t.x) * 0.7).toFixed(0)}px`,
+                                    '--from-y': `${((home.y - t.y) * 0.7).toFixed(0)}px`,
+                                    '--out-delay': `${140 + t.order * 55}ms`,                              // dealt out one after another
+                                    '--back-delay': `${(t.cat.entries.length - 1 - t.order) * 30}ms`,     // and gathered in reverse
+                                }}
+                            >
+                                <Tile tile={t} selected={selected === t.id} visited={visited.has(t.id)} fresh={fresh === t.id}
+                                    nudge={nudge === t.id} onActivate={activate} onHover={hover} />
+                            </div>
+                        )
+                    })}
                     {CORE.map((t, i) => {
                         const seen = t.kind === 'cat' ? t.data.entries.filter(e => visited.has(e.id)).length : 0
                         return (
@@ -358,8 +401,10 @@ function BoardPage() {
                 </motion.div>
             </div>
 
+            <WeatherLayer getCamera={getCamera} snap={nearestCell} />
+
             <HomeKey onHome={e => go('/', { x: e.clientX, y: e.clientY })} />
-            <Controls onIndex={openIndex} onFit={fit} onHelp={help} />
+            <Controls onIndex={openIndex} onFit={fit} onHelp={help} onWeather={() => weather.next()} />
             <ZoomKeys
                 onIn={() => cam.zoomAt(1.35, undefined, undefined, true)}
                 onOut={() => cam.zoomAt(1 / 1.35, undefined, undefined, true)}

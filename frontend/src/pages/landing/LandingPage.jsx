@@ -8,6 +8,7 @@ import { PROFILE } from '@/content/content.js'
 import { audio } from '@/features/sound'
 import { prefs } from '@/shared/state/prefs.js'
 import { mascot, LINES } from '@/features/mascot'
+import { weather } from '@/features/weather'
 import '@/shared/ui/buttons.css'
 import './landing.css'
 
@@ -70,8 +71,9 @@ function LandingPage() {
         } else {
             if (mode === 'on') prefs.set({ sfx: true, music: true })
             else if (prefs.get().music === null) prefs.set({ music: true })
+            audio.cue(weather.plan())     // start the music of the weather the board is about to open on
             audio.unlock()
-            audio.press()
+            audio.enter()
         }
         go(to, { x: e.clientX, y: e.clientY })
     }

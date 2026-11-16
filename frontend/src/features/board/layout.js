@@ -77,6 +77,13 @@ export const cellKey = (q, r) => q * 1000 + r
 export const TILE_CELLS = new Set(TILES.map(t => cellKey(t.q, t.r)))
 export const ENTRY_COUNT = TILES.filter(t => t.kind === 'entry').length
 
+// The hex cell nearest to a point on the board: its grid position and its centre.
+export function nearestCell(x, y) {
+    const r = Math.round(y / STEP_Y)
+    const q = Math.round(x / STEP_X - r / 2)
+    return { q, r, ...toPixel(q, r) }
+}
+
 // Bounding box (world px) of a set of tiles.
 export function boundsOf(tiles) {
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
